@@ -16,7 +16,7 @@ def gen_make(name, type, *argv, **argw):
 class Gen:
     """
     Abstract class for gen
-    Contain vector _data of value of gen
+    Contain vector data of value of gen
     Different Gen classes for different distribution of value in data vector
 
     """
@@ -28,15 +28,15 @@ class Gen:
         self._size = size
         if data is None:
             assert self._size is not None
-            self._data = self.generate()
+            self.data = self.generate()
         else:
-            self._data = np.array(data, dtype=dtype)
+            self.data = np.array(data, dtype=dtype)
             if range is not None:
                 print("clip data range ", range)
-                self._data = self._data.clip(range[0], range[1])
+                self.data = self.data.clip(range[0], range[1])
             if size is not None:
                 assert size == len(data)
-        self._size = len(self._data)
+        self._size = len(self.data)
             
     def generate(self):
         """
@@ -46,12 +46,12 @@ class Gen:
         
     def mutation(self, eps = 0.01, inplace=True):
         e = np.random.rand(self._size)
-        res = np.array(self._data, copy=True)
+        res = np.array(self.data, copy=True)
         for i in range(self._size):
             if e[i] <= eps:
-                res[i] = self.mutvalue(self._data[i])
+                res[i] = self.mutvalue(self.data[i])
         if inplace:
-            self._data = res
+            self.data = res
         return res
     
     def mutvalue(self, value):
@@ -65,7 +65,7 @@ class Gen:
     
     @property
     def values(self):
-        return self._data
+        return self.data
     
     def __str__(self):
         return "Gen: {self.name}, type: {self.type} size: {self._size}, {self.values}".format(self=self)
@@ -158,7 +158,7 @@ class GenSampled(Gen):
     
     @property
     def values(self):
-        return [self._samples[d] for d in self._data]
+        return [self._samples[d] for d in self.data]
 
 def cross(v1, v2):
     """
@@ -188,17 +188,23 @@ def cross(v1, v2):
         start += l
     return v
 
-class Genom:
+class Genom(dict):
     """
     Set of named gens
     Support crossingover op and mutation for all gens in genom
     
     """
-    def __init__(self, gens):
-        self.genom = {g.name: g for g in gens}
+    def __init__(self, gens, *argv, **argw):
+        if isinstance(gens, list):
+            super().__init__({g.name:g for g in gens},*argv, **argw)
+        else:
+            super().__init__(gens,*argv, **argw)
+
+        for v in self.values():
+            assert isinstance(v, Gen) 
         
     def mutation(self, eps=0.01):
-        for gen in self.genom.values():
+        for gen in self.values():
             gen.mutation(eps)
 
     def _check(self, other):
@@ -206,26 +212,26 @@ class Genom:
         Check comatibility of two genom
         Now only equaled supported
         """
-        assert len(self.genom) == len(self.genom)
-        other_keys = other.genom.keys()
-        for k in self.genom.keys():
+        assert len(self) == len(other)
+        other_keys = other.keys()
+        for k in self.keys():
             assert k in other_keys 
             
     def cross(self, other):
         self._check(other)
         # self class constructor
         new = self.__class__([])
-        for name,gen in self.genom.items():
-            new.genom[name] = gen.copy()
-            new.genom[name]._data = cross(new.genom[name]._data, other.genom[name]._data)
+        for name,gen in self.items():
+            new[name] = gen.copy()
+            new[name].data = cross(new[name].data, other[name].data)
         return new
     
     def merge(self, other):
-        self.genom.update(other.genom)
+        self.update(other)
     
     def __str__(self):
-        s = '{count} gens:\n'.format(count = len(self.genom))
-        for gen in self.genom.values():
+        s = '{count} gens:\n'.format(count = len(self))
+        for gen in self.values():
             s += str(gen) + '\n'
         return s
 

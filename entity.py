@@ -8,8 +8,21 @@ class Fenotype:
     Contain genoms and build some from it
     
     """
+
     def __init__(self, genom=None):
-        self.genom = genom or self.generate_genom()
+        self.genom = self.select_gens(genom) or self.generate_genom()
+
+    def select_gens(self, genom):
+        """
+        Select from genom only gens specified for this fenotype
+
+        """
+        if genom is None:
+            return None
+        my_genom = Genom({k:v for k,v in genom.items() if k in self.possible_gens()})
+        assert len(self.possible_gens()) == len(my_genom)
+        #print("select_gens:", my_genom)
+        return my_genom
     
     def generate_genom(self):
         """
@@ -19,6 +32,14 @@ class Fenotype:
                 
     def get_genom(self):
         return self.genom
+
+    def possible_gens(self):
+        """
+        get list of possible gens
+
+        """
+        raise NotImplementedError()
+
     
 class Predictor(Fenotype):
     """
@@ -70,6 +91,9 @@ class Entity(Fenotype):
         genom.merge(self.observer.get_genom())
         genom.merge(self.predictor.get_genom())
         return genom
+
+    def possible_gens(self):
+        return self.observer.possible_gens() + self.predictor.possible_gens()
     
     def rep(self, other, eps = 0.01):
         """
