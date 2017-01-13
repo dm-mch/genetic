@@ -3,6 +3,8 @@ import queue
 import numpy as np
 import sklearn.metrics as metrics
 
+from const import GENERATIONS_COUNT
+
 class StoppableThread(threading.Thread):
     """
     A thread that has a 'stop' event.
@@ -65,7 +67,7 @@ class QueueWorker(StoppableThread):
         print("Worker {} finished".format(self.id))
 
 class EvalQueuePack:
-    def __init__(self, *argw):
+    def __init__(self, **argw):
         self.train = argw.get('train', None)
         self.validate = argw.get('validate', None)
         self.entity = argw.get('entity', None)
@@ -83,6 +85,7 @@ class TrainWorker(QueueWorker):
         assert isinstance(queue_pack, EvalQueuePack)
         qp = queue_pack
         qp.entity.fit(qp.train['x'], qp.train['y'])
+        #print("self.score:",self.score)
         qp.score = self.score(qp.validate['y'], qp.entity.action(qp.validate['x']))
         # No more needed
         qp.train = None
@@ -93,9 +96,11 @@ class TrainWorker(QueueWorker):
 
 class PopulateWorker(QueueWorker):
     """ """
-    def __init__(self, populate_callback, *argv, **argw):
+    def __init__(self, populate_callback, *argv, generations=GENERATIONS_COUNT, **argw):
         self.populate = populate_callback
-        self.population_count = 0
+        self.result_population = None
+        self.generations = generations
+        self.generation_count = 0
         super().__init__(PopulateWorker.populate_and_enqueue, *argv, **argw)   
 
     @staticmethod
@@ -105,32 +110,36 @@ class PopulateWorker(QueueWorker):
         @param workers list of TrainWorker for enqueue new population for train
 
         """
-        # get old population sort\score and generate new
-        population = self.populate(queue_packs)
-        
-        if population is None:
+        if self.generation_count >= self.generations:
             #finish. stop workers and self
-            print(self.population_count, "evaluated... stoping all workers")
+            print(self.generation_count, "evaluated... stoping all workers")
+            # save result population
+            self.result_population = queue_packs
+            # stop all workers
             for w in workers:
                 w.stop()
             self.stop()
-        else:    
+        else:
+            print(self.generation_count, "Bests score:", 
+                 ["%.3f"%p.score for p in sorted(queue_packs, key=lambda k: k.score, reverse=True)[:10]])
+            # get old population sort\score and generate new        
+            population = self.populate(queue_packs)
             # enqueue new population
-            self.balanced_enqueue(populate, [w.queue for w in workers])
-            self.population_count += 1
+            self.balanced_enqueue(population, [w.queue for w in workers])
+            self.generation_count += 1
 
     def balanced_enqueue(self, queue_packs, queues):
         qsizes = [q.qsize() for q in queues]
-        maxq = np.max(qsize)
-        meanq = np.mean(qsize)
-        if maxq >= 1.5 * meanq:
+        maxq = np.max(qsizes)
+        meanq = np.mean(qsizes)
+        if maxq > 1.5 * meanq:
             print("Balancing queue. Sizes ", qsizes)
             queues.remove(queues[np.argmax(qsizes)])
 
         max_queue = int(len(queue_packs)/len(queues))
         queue_index = 0
         for i, pack in enumerate(queue_packs):
-            self.queue_put_stoppable(queues[queue_index])
+            self.queue_put_stoppable(queues[queue_index], pack)
             if i>0 and i%max_queue == 0 and queue_index < len(queues) - 1:
                 queue_index+=1
 

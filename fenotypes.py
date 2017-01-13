@@ -50,7 +50,7 @@ class FeatureSelectObserver(Observer):
             self.get_genom()['ts_features'].data[rnd] = 1
             
     def generate_genom(self):
-        print("generate_genom FeatureSelectObserver")
+        #print("generate_genom FeatureSelectObserver")
         return Genom([gen_make('ts_features', 'bernuli', size=self.size, p=0.05)])
 
     def possible_gens(self):
