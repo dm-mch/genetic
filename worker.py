@@ -5,6 +5,19 @@ import sklearn.metrics as metrics
 
 from const import GENERATIONS_COUNT
 
+import cProfile
+ 
+def profile_this(fn):
+    def profiled_fn(*args, **kwargs):
+        # name for profile dump
+        fpath = fn.__name__ + '.profile'
+        prof = cProfile.Profile()
+        ret = prof.runcall(fn, *args, **kwargs)
+        prof.dump_stats(fpath)
+        return ret
+    return profiled_fn
+
+
 class StoppableThread(threading.Thread):
     """
     A thread that has a 'stop' event.
@@ -59,11 +72,13 @@ class QueueWorker(StoppableThread):
     def add_params(self, **argw):
         self._argw.update(argw)
 
+    @profile_this
     def run(self):
         print("Worker {} started".format(self.id))
         while not self.stopped():
             batch = self.queue_get_stoppable(self.queue, count=self._dequeue_size)
-            self._func(self, batch, **self._argw)
+            if batch is not None:
+                self._func(self, batch, **self._argw)
         print("Worker {} finished".format(self.id))
 
 class EvalQueuePack:

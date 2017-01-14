@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from genom import Genom
+from const import FEATURE_COUNT
 
 class Fenotype:
     """
@@ -78,8 +79,8 @@ class Entity(Fenotype):
     observer_class = Observer
     predictor_class = Predictor
 
-    def __init__(self, genom=None):
-        self.observer = self.observer_class(genom)
+    def __init__(self, genom=None, feature_count=FEATURE_COUNT):
+        self.observer = self.observer_class(genom, feature_count=feature_count)
         self.predictor = self.predictor_class(genom)
         super().__init__(genom)
         

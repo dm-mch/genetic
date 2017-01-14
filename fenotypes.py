@@ -71,8 +71,8 @@ class TSEntity(Entity):
     observer_class = FeatureSelectObserver
     predictor_class = LogRegressPredictor
 
-    def __init__(self, genom=None):
-        super().__init__(genom)
+    def __init__(self, genom=None, **argw):
+        super().__init__(genom, **argw)
 
 
 def test():
